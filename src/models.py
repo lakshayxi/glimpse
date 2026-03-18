@@ -54,15 +54,22 @@ class CrossAttentionFusion(nn.Module):
     def __init__(self, embed_dim=512, num_heads=8, dropout=0.3, num_classes=2):
         super().__init__()
 
-        # WHY MultiheadAttention?
-        # it lets text query the image across multiple "perspectives" simultaneously
+        # WHY num_heads=8?
+        # Multi-head attention runs 8 independent attention operations in parallel.
+        # Each head can learn to focus on different aspects —
+        # one head might focus on objects, another on spatial relationships.
+        # Their outputs are concatenated and projected back to embed_dim.
         self.cross_attn = nn.MultiheadAttention(
             embed_dim=embed_dim,
             num_heads=num_heads,
             dropout=dropout,
-            batch_first=True
+            batch_first=True  # expects (batch, seq, features) not (seq, batch, features)
         )
 
+        # WHY LayerNorm?
+        # After attention, the values can vary wildly in scale.
+        # LayerNorm stabilizes them — makes training faster and more stable.
+        # This is the standard residual + norm block from the Transformer paper.
         self.norm = nn.LayerNorm(embed_dim)
 
         self.classifier = nn.Sequential(
@@ -72,17 +79,30 @@ class CrossAttentionFusion(nn.Module):
             nn.Linear(embed_dim // 2, num_classes)
         )
 
-    def forward(self, image_feat, text_feat):
-        # unsqueeze to add sequence dimension — attention expects (B, seq_len, dim)
-        img = image_feat.unsqueeze(1)   # (B, 1, 512)
-        txt = text_feat.unsqueeze(1)    # (B, 1, 512)
+    def forward(self, image_patches, text_feat):
+        # image_patches: (B, 196, 512) — 196 patch vectors
+        # text_feat:     (B, 512)      — one question vector
 
-        # text queries the image
-        # query=txt, key=img, value=img
-        # WHY? the question decides what to look for, image provides the answers
-        attended, _ = self.cross_attn(query=txt, key=img, value=img)
+        # text needs a sequence dimension to act as query
+        # (B, 512) → (B, 1, 512)
+        txt = text_feat.unsqueeze(1)
 
-        # residual connection + norm — standard transformer trick for stable training
-        out = self.norm(attended.squeeze(1) + text_feat)
+        # cross attention:
+        # query = text (what are we looking for?)
+        # key   = image patches (what does each region contain?)
+        # value = image patches (what to return from relevant regions?)
+        attended, _ = self.cross_attn(
+            query=txt,          # (B, 1, 512)
+            key=image_patches,  # (B, 196, 512)
+            value=image_patches # (B, 196, 512)
+        )
+        # attended: (B, 1, 512) — question-guided image representation
 
-        return self.classifier(out)     # (B, 2)        
+        # squeeze back to (B, 512)
+        attended = attended.squeeze(1)
+
+        # residual connection — add original text back in
+        # WHY? so the model doesn't forget the question after attending
+        out = self.norm(attended + text_feat)
+
+        return self.classifier(out)  # (B, 2)     # (B, 2)        

@@ -1,0 +1,27 @@
+data:
+  questions_path: "data/VQA_input_questions/v2_OpenEnded_mscoco_val2014_questions.json"
+  annotations_path: "data/VQA_annotations/v2_mscoco_val2014_annotations.json"
+  images_dir: "data/VQA_input_images/val2014"
+  embeddings_path: "data/embeddings/vqa_embeddings.pt"
+  answer_type: "yes/no"
+  train_split: 0.8
+
+model:
+  embed_dim: 512
+  hidden_dim: 1024
+  num_classes: 2
+  dropout: 0.3
+  num_heads: 8
+
+training:
+  batch_size: 256
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  epochs: 20
+  seed: 42
+  warmup_epochs: 2
+  checkpoint_dir: "results/checkpoints"
+  log_every: 50
+
+eval:
+  results_dir: "results"

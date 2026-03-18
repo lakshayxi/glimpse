@@ -37,3 +37,19 @@ def get_logger(name: str):
         logger.addHandler(handler)
 
     return logger
+
+
+import random
+import numpy as np
+
+def set_seed(seed: int = 42):
+    """Seed everything for reproducible runs.
+    
+    WHY seed all three? Each library has its own RNG.
+    Seeding only torch won't fix numpy's shuffles.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)    

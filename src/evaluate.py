@@ -20,7 +20,7 @@ from sklearn.metrics import (
     f1_score, confusion_matrix, ConfusionMatrixDisplay
 )
 
-from src.models import ConcatMLP, BilinearFusion, CrossAttentionFusion
+from src.models import ConcatMLP, BilinearFusion, CrossAttentionFusion, CrossAttentionFusionV2
 from src.dataset import VQADataset
 from src.train import forward
 from src.utils import get_device, get_logger, set_seed
@@ -139,6 +139,13 @@ def run_evaluation(config):
             num_heads=config["model"]["num_heads"],
             dropout=config["model"]["dropout"],
             num_classes=config["model"]["num_classes"],
+        ),
+        "cross_attention_v2": CrossAttentionFusionV2(
+            embed_dim=config["model"]["embed_dim"],
+            num_heads=config["model"]["num_heads"],
+            dropout=config["model"]["dropout"],
+            num_classes=config["model"]["num_classes"],
+            num_layers=config["model"]["num_layers"],
         ),
     }
 

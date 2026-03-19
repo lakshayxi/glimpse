@@ -6,9 +6,9 @@ class VQADataset(Dataset):
 
         data = torch.load(embeddings_path, map_location="cpu")
 
-        self.image_global= data["image global"] 
+        self.image_global= data["image_global"] 
         self.image_patches = data["image_patches"]
-        self.text_feat = data["test_feat"]
+        self.text_feat = data["text_feat"]
         self.labels = data["labels"]
 
     def __len__(self):
@@ -18,6 +18,6 @@ class VQADataset(Dataset):
         return {
             "image_global": self.image_global[idx],
             "image_patches": self.image_patches[idx],
-            "test_feat": self.test_feat[idx],
-            "labels": self.labels[idx],
+            "text_feat": self.text_feat[idx],
+            "label": self.labels[idx],
         }

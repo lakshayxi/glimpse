@@ -19,5 +19,12 @@
     "f1": 0.5871,
     "params": 1183490,
     "best_epoch": 8
+  },
+  {
+    "model": "cross_attention_v2",
+    "val_acc": 0.5648,
+    "f1": 0.6115,
+    "params": 6436610,
+    "best_epoch": 9
   }
 ]

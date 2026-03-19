@@ -89,7 +89,7 @@ def forward(model, batch, device):
 
     text_feat = batch["text_feat"].to(device)
 
-    if model_name == "CrossAttentionFusion":
+    if model_name in ("CrossAttentionFusion", "CrossAttentionFusionV2"):
         image_feat = batch["image_patches"].to(device)
     else:
         image_feat = batch["image_global"].to(device)
@@ -130,6 +130,9 @@ def train(model, config, fusion_name):
     )
 
     best_val_acc = 0
+    best_val_loss = float("inf")
+    epochs_no_improve = 0
+    patience = config["training"]["early_stopping_patience"]
     history = {"train_loss": [], "val_loss": [],
                "train_acc": [], "val_acc": []}
 
@@ -152,9 +155,11 @@ def train(model, config, fusion_name):
             f"val loss: {val_loss:.4f} acc: {val_acc:.4f}"
         )
 
-        # save checkpoint if best val accuracy
-        if val_acc > best_val_acc:
+        # save checkpoint if best val loss improved
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             best_val_acc = val_acc
+            epochs_no_improve = 0
             ckpt_dir = Path(config["training"]["checkpoint_dir"])
             ckpt_dir.mkdir(parents=True, exist_ok=True)
             torch.save({
@@ -162,7 +167,15 @@ def train(model, config, fusion_name):
                 "model_state": model.state_dict(),
                 "val_acc": val_acc,
             }, ckpt_dir / f"{fusion_name}_best.pt")
-            logger.info(f"  ✓ saved best checkpoint (val_acc={val_acc:.4f})")
+            logger.info(f"  ✓ saved best checkpoint (val_loss={val_loss:.4f})")
+        else:
+            epochs_no_improve += 1
+            logger.info(f"  no improvement for {epochs_no_improve} epoch(s)")
+
+        # early stopping
+        if epochs_no_improve >= patience:
+            logger.info(f"Early stopping at epoch {epoch}")
+            break
 
     # save training history
     results_dir = Path(config["eval"]["results_dir"])

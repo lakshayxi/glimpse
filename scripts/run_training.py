@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.models import ConcatMLP, BilinearFusion, CrossAttentionFusion
+from src.models import ConcatMLP, BilinearFusion, CrossAttentionFusion, CrossAttentionFusionV2
 from src.train import train
 
 
@@ -26,25 +26,33 @@ def main():
     num_heads  = config["model"]["num_heads"]
 
     models = {
-        "concat_mlp": ConcatMLP(
-            embed_dim=embed_dim,
-            hidden_dim=hidden_dim,
-            num_classes=num_classes,
-            dropout=dropout,
-        ),
-        "bilinear": BilinearFusion(
-            embed_dim=embed_dim,
-            hidden_dim=hidden_dim,
-            num_classes=num_classes,
-            dropout=dropout,
-        ),
-        "cross_attention": CrossAttentionFusion(
+        # "concat_mlp": ConcatMLP(
+        #     embed_dim=embed_dim,
+        #     hidden_dim=hidden_dim,
+        #     num_classes=num_classes,
+        #     dropout=dropout,
+        # ),
+        # "bilinear": BilinearFusion(
+        #     embed_dim=embed_dim,
+        #     hidden_dim=hidden_dim,
+        #     num_classes=num_classes,
+        #     dropout=dropout,
+        # ),
+        # "cross_attention": CrossAttentionFusion(
+        #     embed_dim=embed_dim,
+        #     num_heads=num_heads,
+        #     dropout=dropout,
+        #     num_classes=num_classes,
+        # ),
+        "cross_attention_v2": CrossAttentionFusionV2(
             embed_dim=embed_dim,
             num_heads=num_heads,
-            dropout=dropout,
+            dropout=config["model"]["dropout"],
             num_classes=num_classes,
+            num_layers=config["model"]["num_layers"],
         ),
     }
+    
 
     for name, model in models.items():
         print(f"\n{'='*50}")

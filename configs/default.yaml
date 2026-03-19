@@ -8,20 +8,24 @@ data:
 
 model:
   embed_dim: 512
-  hidden_dim: 1024
+  hidden_dim: 512      # reduced from 1024
   num_classes: 2
-  dropout: 0.3
+  dropout: 0.5         # increased from 0.3
   num_heads: 8
+  num_layers: 2
 
 training:
   batch_size: 256
   lr: 3.0e-4
-  weight_decay: 1.0e-4
-  epochs: 20
+  weight_decay: 1.0e-3
+  epochs: 2
   seed: 42
   warmup_epochs: 2
   checkpoint_dir: "results/checkpoints"
   log_every: 50
+  early_stopping_patience: 5
+  encoder_lr: 1.0e-6
+  finetune_encoder: false
 
 eval:
   results_dir: "results"

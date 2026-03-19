@@ -1,0 +1,23 @@
+[
+  {
+    "model": "concat_mlp",
+    "val_acc": 0.5863,
+    "f1": 0.5772,
+    "params": 656642,
+    "best_epoch": 10
+  },
+  {
+    "model": "bilinear",
+    "val_acc": 0.6101,
+    "f1": 0.6277,
+    "params": 657154,
+    "best_epoch": 8
+  },
+  {
+    "model": "cross_attention",
+    "val_acc": 0.5717,
+    "f1": 0.5871,
+    "params": 1183490,
+    "best_epoch": 8
+  }
+]

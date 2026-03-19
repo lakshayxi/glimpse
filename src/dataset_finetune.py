@@ -66,7 +66,7 @@ class VQAFinetuneDataset(Dataset):
                 "label":      1 if majority == "yes" else 0,
             })
 
-        samples = samples[:5000]  # smoke test — remove this line for full run
+        
         print(f"Loaded {len(samples)} yes/no samples")
         return samples
 

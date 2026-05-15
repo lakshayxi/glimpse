@@ -78,15 +78,19 @@ def eval_epoch(model, loader, criterion, device):
 
 def forward(model, batch, device):
     """Route the right inputs to the right model.
-    
-    WHY this function?
-    ConcatMLP and Bilinear use global image features (B, 512).
-    CrossAttention uses patch features (B, 196, 512).
-    This function checks which model we're using and sends
-    the correct inputs automatically.
-    """
-    model_name = model.__class__.__name__
 
+    Each model class declares REQUIRED_INPUTS as a tuple of batch keys.
+    This function extracts those keys, moves them to the target device,
+    and passes them as positional args to forward().
+    """
+    required = getattr(model, 'REQUIRED_INPUTS', None)
+
+    if required is not None:
+        args = [batch[key].to(device) for key in required]
+        return model(*args)
+
+    # Fallback for models without REQUIRED_INPUTS
+    model_name = model.__class__.__name__
     text_feat = batch["text_feat"].to(device)
 
     if model_name in ("CrossAttentionFusion", "CrossAttentionFusionV2"):
@@ -104,11 +108,15 @@ def train(model, config, fusion_name):
     device = get_device()
     logger.info(f"Training {fusion_name} on {device}")
 
-    # load dataset and split into train/val
-    dataset = VQADataset(config["data"]["embeddings_path"])
+    # load dataset — only the keys this model needs
+    required_keys = getattr(model, 'REQUIRED_INPUTS', None)
+    dataset = VQADataset(config["data"]["embeddings_path"], required_keys=required_keys)
     n_train = int(len(dataset) * config["data"]["train_split"])
     n_val = len(dataset) - n_train
-    train_set, val_set = random_split(dataset, [n_train, n_val])
+    train_set, val_set = random_split(
+        dataset, [n_train, n_val],
+        generator=torch.Generator().manual_seed(config["training"]["seed"])
+    )
 
     train_loader = DataLoader(
         train_set,

@@ -20,7 +20,10 @@ from sklearn.metrics import (
     f1_score, confusion_matrix, ConfusionMatrixDisplay
 )
 
-from src.models import ConcatMLP, BilinearFusion, CrossAttentionFusion, CrossAttentionFusionV2
+from src.models import (
+    ConcatMLP, BilinearFusion, CrossAttentionFusion, CrossAttentionFusionV2,
+    GeometryFusion, TokenGrounding, LayerAdaptiveFusion, MultiGlimpse,
+)
 from src.dataset import VQADataset
 from src.train import forward
 from src.utils import get_device, get_logger, set_seed
@@ -57,9 +60,17 @@ def evaluate_model(model, loader, device):
 
 
 def plot_loss_curves(histories, results_dir):
-    """Plot train and val loss curves for all three models."""
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    """Plot train and val loss curves for all models."""
+    n = len(histories)
+    cols = min(n, 4)
+    rows = (n + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
     fig.suptitle("Training Loss Curves", fontsize=14, fontweight="bold")
+
+    if n == 1:
+        axes = [axes]
+    else:
+        axes = list(axes.flatten()) if hasattr(axes, 'flatten') else [axes]
 
     for ax, (name, history) in zip(axes, histories.items()):
         epochs = range(1, len(history["train_loss"]) + 1)
@@ -71,6 +82,9 @@ def plot_loss_curves(histories, results_dir):
         ax.legend()
         ax.grid(True, alpha=0.3)
 
+    for ax in axes[n:]:
+        ax.set_visible(False)
+
     plt.tight_layout()
     path = Path(results_dir) / "loss_curves.png"
     plt.savefig(path, dpi=150)
@@ -79,9 +93,17 @@ def plot_loss_curves(histories, results_dir):
 
 
 def plot_confusion_matrices(results, results_dir):
-    """Plot confusion matrices for all three models side by side."""
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    """Plot confusion matrices for all models side by side."""
+    n = len(results)
+    cols = min(n, 4)
+    rows = (n + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
     fig.suptitle("Confusion Matrices", fontsize=14, fontweight="bold")
+
+    if n == 1:
+        axes = [axes]
+    else:
+        axes = list(axes.flatten()) if hasattr(axes, 'flatten') else [axes]
 
     for ax, (name, (preds, labels)) in zip(axes, results.items()):
         cm = confusion_matrix(labels, preds)
@@ -92,6 +114,9 @@ def plot_confusion_matrices(results, results_dir):
         disp.plot(ax=ax, colorbar=False)
         ax.set_title(name)
 
+    for ax in axes[n:]:
+        ax.set_visible(False)
+
     plt.tight_layout()
     path = Path(results_dir) / "confusion_matrices.png"
     plt.savefig(path, dpi=150)
@@ -99,26 +124,28 @@ def plot_confusion_matrices(results, results_dir):
     logger.info(f"Saved confusion matrices → {path}")
 
 
-def run_evaluation(config):
-    set_seed(config["training"]["seed"])
-    device = get_device()
-
-    # load dataset — same split as training
-    dataset = VQADataset(config["data"]["embeddings_path"])
+def _make_val_loader(config, required_keys):
+    """Create a val DataLoader loading only the keys a model needs."""
+    dataset = VQADataset(
+        config["data"]["embeddings_path"],
+        required_keys=required_keys,
+    )
     n_train = int(len(dataset) * config["data"]["train_split"])
-    n_val   = len(dataset) - n_train
+    n_val = len(dataset) - n_train
     _, val_set = random_split(
         dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(
-            config["training"]["seed"]
-        )
+        generator=torch.Generator().manual_seed(config["training"]["seed"]),
     )
-
-    val_loader = DataLoader(
+    return DataLoader(
         val_set,
         batch_size=config["training"]["batch_size"],
         shuffle=False,
     )
+
+
+def run_evaluation(config):
+    set_seed(config["training"]["seed"])
+    device = get_device()
 
     # model definitions — must match training
     model_defs = {
@@ -147,6 +174,32 @@ def run_evaluation(config):
             num_classes=config["model"]["num_classes"],
             num_layers=config["model"]["num_layers"],
         ),
+        "geometry": GeometryFusion(
+            embed_dim=config["model"]["embed_dim"],
+            hidden_dim=config["model"]["hidden_dim"],
+            num_classes=config["model"]["num_classes"],
+            dropout=config["model"]["dropout"],
+        ),
+        "token_grounding": TokenGrounding(
+            embed_dim=config["model"]["embed_dim"],
+            num_heads=config["model"]["num_heads"],
+            num_layers=config["model"]["num_layers"],
+            dropout=config["model"]["dropout"],
+            num_classes=config["model"]["num_classes"],
+        ),
+        "layer_adaptive": LayerAdaptiveFusion(
+            embed_dim=config["model"]["embed_dim"],
+            num_heads=config["model"]["num_heads"],
+            num_layers=config["model"]["num_layers"],
+            dropout=config["model"]["dropout"],
+            num_classes=config["model"]["num_classes"],
+        ),
+        "multi_glimpse": MultiGlimpse(
+            embed_dim=config["model"]["embed_dim"],
+            num_heads=config["model"]["num_heads"],
+            dropout=config["model"]["dropout"],
+            num_classes=config["model"]["num_classes"],
+        ),
     }
 
     ckpt_dir     = Path(config["training"]["checkpoint_dir"])
@@ -157,11 +210,17 @@ def run_evaluation(config):
     histories     = {}
     summary       = []
 
+    import gc
+
     for name, model in model_defs.items():
         ckpt_path = ckpt_dir / f"{name}_best.pt"
         if not ckpt_path.exists():
             logger.warning(f"No checkpoint found for {name}, skipping")
             continue
+
+        # Create a fresh val loader per model, free it after eval
+        required = getattr(model, 'REQUIRED_INPUTS', None)
+        val_loader = _make_val_loader(config, required)
 
         # load checkpoint
         ckpt = torch.load(ckpt_path, map_location="cpu")
@@ -194,6 +253,10 @@ def run_evaluation(config):
             f"{name:20s} | acc: {acc:.4f} | "
             f"f1: {f1:.4f} | params: {params:,}"
         )
+
+        # Free dataset memory before loading next model's data
+        del val_loader, model
+        gc.collect()
 
     # print comparison table
     print("\n" + "="*60)

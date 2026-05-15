@@ -1,30 +1,58 @@
 [
   {
     "model": "concat_mlp",
-    "val_acc": 0.5863,
-    "f1": 0.5772,
+    "val_acc": 0.5859,
+    "f1": 0.5942,
     "params": 656642,
-    "best_epoch": 10
+    "best_epoch": 11
   },
   {
     "model": "bilinear",
-    "val_acc": 0.6101,
-    "f1": 0.6277,
+    "val_acc": 0.6015,
+    "f1": 0.5999,
     "params": 657154,
-    "best_epoch": 8
+    "best_epoch": 6
   },
   {
     "model": "cross_attention",
-    "val_acc": 0.5717,
-    "f1": 0.5871,
+    "val_acc": 0.5713,
+    "f1": 0.6081,
     "params": 1183490,
-    "best_epoch": 8
+    "best_epoch": 10
   },
   {
     "model": "cross_attention_v2",
-    "val_acc": 0.5648,
-    "f1": 0.6115,
+    "val_acc": 0.5594,
+    "f1": 0.6386,
     "params": 6436610,
-    "best_epoch": 9
+    "best_epoch": 6
+  },
+  {
+    "model": "geometry",
+    "val_acc": 0.633,
+    "f1": 0.6617,
+    "params": 657154,
+    "best_epoch": 12
+  },
+  {
+    "model": "token_grounding",
+    "val_acc": 0.563,
+    "f1": 0.5629,
+    "params": 6437634,
+    "best_epoch": 8
+  },
+  {
+    "model": "layer_adaptive",
+    "val_acc": 0.5718,
+    "f1": 0.5854,
+    "params": 6505733,
+    "best_epoch": 4
+  },
+  {
+    "model": "multi_glimpse",
+    "val_acc": 0.5692,
+    "f1": 0.6103,
+    "params": 3288322,
+    "best_epoch": 10
   }
 ]
